@@ -1,0 +1,183 @@
+name: Build And Release
+on:
+  push:
+    tags:
+      - 'v*'
+  pull_request:
+    types: [review_requested]
+jobs:
+  build_on_windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache Node.js dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: windows-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            windows-node-
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm install --prefer-offline --legacy-peer-deps
+
+      - name: Build
+        run: npm run package
+
+      - name: List release folder
+        run: dir release/build/
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        id: create_release
+        with:
+          name: ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          draft: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Release Artifacts
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/build/*.exe
+            release/build/*.msi
+            release/build/*.appx
+            release/build/*-setup.exe
+            release/build/*-ia32-setup.exe
+            release/build/*-x64-setup.exe
+            release/build/*-ia32.msi
+            release/build/*-x64.msi
+            release/build/*-ia32.appx
+            release/build/*-x64.appx
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Windows Artifacts
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifacts
+          path: |
+            release/build/*.exe
+            release/build/*.msi
+            release/build/*.appx
+            release/build/*-setup.exe
+            release/build/*-ia32-setup.exe
+            release/build/*-x64-setup.exe
+            release/build/*-ia32.msi
+            release/build/*-x64.msi
+            release/build/*-ia32.appx
+            release/build/*-x64.appx
+
+  build_on_ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache Node.js dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ubuntu-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ubuntu-node-
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm install --prefer-offline --legacy-peer-deps
+
+      - name: Build the Package
+        run: npm run package
+
+      - name: List release folder
+        run: ls -la release/build/
+
+      - name: Upload Ubuntu Release Artifacts
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/build/*.deb
+            release/build/*.snap
+            release/build/*.AppImage
+            release/build/*-amd64.deb
+            release/build/*-x86_64.AppImage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Ubuntu Artifacts
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu-artifacts
+          path: |
+            release/build/*.deb
+            release/build/*.snap
+            release/build/*.AppImage
+            release/build/*-amd64.deb
+            release/build/*-x86_64.AppImage
+
+  build_on_mac:
+    runs-on: macOS-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache Node.js dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: mac-node-${{ hashFiles('/package-lock.json') }}
+          restore-keys: |
+            mac-node-
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm install --prefer-offline --legacy-peer-deps
+
+      - name: Build the Package
+        run: npm run package
+
+      - name: List release folder
+        run: ls -la release/build/
+
+      - name: Upload macOS Release Artifacts
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/build/*.dmg
+            release/build/*-arm64.dmg
+            release/build/*-x64.dmg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload macOS Artifacts (Non-Tag Builds)
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-artifacts
+          path: |
+            release/build/*.dmg
+            release/build/*-arm64.dmg
+            release/build/*-x64.dmg
