@@ -1,138 +1,161 @@
-name: Build and Release Flatpak Application
+name: Build And Release
 
 on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
+  pull_request:
+    types: [review_requested]
 
 jobs:
-  build-flatpak:
-    runs-on: ubuntu-latest
-
+  build_on_windows:
+    runs-on: windows-latest
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Install system dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y flatpak flatpak-builder nodejs npm
+      - name: Cache Node.js dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: windows-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            windows-node-
 
-    - name: Setup Flatpak
-      run: |
-        sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-        sudo flatpak install -y flathub org.freedesktop.Platform//23.08
-        sudo flatpak install -y flathub org.freedesktop.Sdk//23.08
-        sudo flatpak install -y flathub org.flatpak.Builder
-        sudo flatpak install -y flathub org.electronjs.Electron2.BaseApp//23.08
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-    - name: Build Electron application
-      run: |
-        # Use the current repository instead of cloning again
-        npm install --legacy-peer-deps --no-audit --no-fund
-        npm run build
+      - name: Install Dependencies
+        run: npm install --prefer-offline --legacy-peer-deps
 
-        # Create the app bundle directory structure
-        mkdir -p flathub/app-bundle
+      - name: Build
+        run: npm run package
 
-        # Copy the entire built application including node_modules
-        cp -r . flathub/app-bundle/
+      - name: List release folder
+        run: dir release/build/
 
-        # Remove unnecessary files to reduce size
-        cd flathub/app-bundle
-        rm -rf .git .github .gitignore README.md docs .erb
+      - name: Upload Windows Artifacts
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifacts
+          path: |
+            release/build/*.exe
+            release/build/*.msi
+            release/build/*.appx
+            release/build/*-setup.exe
 
-        echo "=== App bundle contents ==="
-        ls -la
-        echo "=== Checking for main entry point ==="
-        find . -name "main.js" -o -name "electron.js" -o -name "index.js" | head -10
+  build_on_ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Create Flatpak manifest
-      run: |
-        cd flathub
+      - name: Cache Node.js dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ubuntu-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ubuntu-node-
 
-        # Create the manifest
-        cat > rocks.poopjournal.librelinkupdesktop.yml << 'EOF'
-        app-id: rocks.poopjournal.librelinkupdesktop
-        runtime: org.freedesktop.Platform
-        runtime-version: '23.08'
-        sdk: org.freedesktop.Sdk
-        command: librelinkupdesktop
-        finish-args:
-          - --share=ipc
-          - --share=network
-          - --socket=fallback-x11
-          - --socket=wayland
-          - --device=dri
-          - --filesystem=home
-          - --filesystem=xdg-run/gvfs
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-        modules:
-          - name: librelinkupdesktop
-            buildsystem: simple
-            build-commands:
-              - mkdir -p /app/lib/librelinkupdesktop
-              - cp -r app-bundle/* /app/lib/librelinkupdesktop/
-              - mkdir -p /app/bin
-              - |
-                cat > /app/bin/librelinkupdesktop << 'SCRIPT_EOF'
-                #!/bin/sh
-                cd /app/lib/librelinkupdesktop
-                export NODE_ENV=production
-                export ELECTRON_IS_DEV=0
-                exec npx electron .
-                SCRIPT_EOF
-              - chmod +x /app/bin/librelinkupdesktop
-              - mkdir -p /app/share/applications
-              - |
-                cat > /app/share/applications/rocks.poopjournal.librelinkupdesktop.desktop << 'DESKTOP_EOF'
-                [Desktop Entry]
-                Type=Application
-                Name=LibreLinkUp Desktop
-                Exec=librelinkupdesktop
-                Icon=rocks.poopjournal.librelinkupdesktop
-                Comment=LibreLinkUp Desktop Application
-                Categories=Utility;
-                Terminal=false
-                DESKTOP_EOF
-              - mkdir -p /app/share/icons/hicolor/512x512/apps/
-              - |
-                if [ -f "/app/lib/librelinkupdesktop/resources/icon.png" ]; then
-                  install -Dm644 /app/lib/librelinkupdesktop/resources/icon.png /app/share/icons/hicolor/512x512/apps/rocks.poopjournal.librelinkupdesktop.png
-                elif [ -f "/app/lib/librelinkupdesktop/assets/icon.png" ]; then
-                  install -Dm644 /app/lib/librelinkupdesktop/assets/icon.png /app/share/icons/hicolor/512x512/apps/rocks.poopjournal.librelinkupdesktop.png
-                fi
-            sources:
-              - type: dir
-                path: app-bundle
-        EOF
+      - name: Install Dependencies
+        run: npm install --prefer-offline --legacy-peer-deps
 
-    - name: Verify application structure
-      run: |
-        cd flathub/app-bundle
-        echo "=== Package.json main entry ==="
-        node -p "require('./package.json').main" 2>/dev/null || echo "No main entry found"
-        echo "=== Scripts available ==="
-        node -p "JSON.stringify(require('./package.json').scripts, null, 2)" 2>/dev/null || echo "No scripts found"
-        echo "=== Checking dist directory ==="
-        ls -la dist/ 2>/dev/null || echo "No dist directory"
-        echo "=== Checking release directory ==="
-        ls -la release/ 2>/dev/null || echo "No release directory"
+      - name: Build the Package
+        run: npm run package
 
-    - name: Build the Flatpak
-      run: |
-        cd flathub
-        flatpak-builder --user --install --force-clean build-dir rocks.poopjournal.librelinkupdesktop.yml
+      - name: List release folder
+        run: ls -la release/build/
 
-    - name: Create distributable bundle
-      run: |
-        cd flathub
-        flatpak build-bundle ~/.local/share/flatpak/repo LibreLinkUpDesktop.flatpak rocks.poopjournal.librelinkupdesktop
+      - name: Upload Ubuntu Artifacts
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu-artifacts
+          path: |
+            release/build/*.deb
+            release/build/*.snap
+            release/build/*.AppImage
 
-    - name: Upload Flatpak bundle to release
-      uses: softprops/action-gh-release@v2
-      with:
-        files: flathub/LibreLinkUpDesktop.flatpak
-      env:
-        GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+  build_on_mac:
+    runs-on: macOS-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache Node.js dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: mac-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            mac-node-
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm install --prefer-offline --legacy-peer-deps
+
+      - name: Build the Package
+        run: npm run package
+
+      - name: List release folder
+        run: ls -la release/build/
+
+      - name: Upload macOS Artifacts (Non-Tag Builds)
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-artifacts
+          path: |
+            release/build/*.dmg
+
+  create_release:
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    needs: [build_on_windows, build_on_ubuntu, build_on_mac]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Windows Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-artifacts
+          path: windows-artifacts/
+
+      - name: Download Ubuntu Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ubuntu-artifacts
+          path: ubuntu-artifacts/
+
+      - name: Download macOS Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-artifacts
+          path: macos-artifacts/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          draft: true
+          files: |
+            windows-artifacts/**
+            ubuntu-artifacts/**
+            macos-artifacts/**
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
