@@ -47,14 +47,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            release/build/LibreLinkUpDesktop-*-setup.exe
-            release/build/LibreLinkUpDesktop-*-ia32-setup.exe
-            release/build/LibreLinkUpDesktop-*-x64-setup.exe
-            release/build/LibreLinkUpDesktop-*-ia32.msi
-            release/build/LibreLinkUpDesktop-*-x64.msi
-            release/build/LibreLinkUpDesktop-*-ia32.appx
-            release/build/LibreLinkUpDesktop-*-x64.appx
+          files: release/build/*
           tag_name: ${{ github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
