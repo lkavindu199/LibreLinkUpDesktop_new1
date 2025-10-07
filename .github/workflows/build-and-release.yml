@@ -48,13 +48,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release/build/*-setup.exe
-            release/build/*-ia32-setup.exe
-            release/build/*-x64-setup.exe
-            release/build/*-ia32.msi
-            release/build/*-x64.msi
-            release/build/*-ia32.appx
-            release/build/*-x64.appx
+            release/build/LibreLinkUpDesktop-*-setup.exe
+            release/build/LibreLinkUpDesktop-*-ia32-setup.exe
+            release/build/LibreLinkUpDesktop-*-x64-setup.exe
+            release/build/LibreLinkUpDesktop-*-ia32.msi
+            release/build/LibreLinkUpDesktop-*-x64.msi
+            release/build/LibreLinkUpDesktop-*-ia32.appx
+            release/build/LibreLinkUpDesktop-*-x64.appx
           tag_name: ${{ github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -96,21 +96,15 @@ jobs:
             release/build/*.deb
             release/build/*.snap
             release/build/*.AppImage
-            !release/build/*.blockmap
-            !release/build/builder-debug.yml
-            !release/build/latest.yml
 
       - name: Upload to Release (Ubuntu)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release/build/*-amd64.deb
-            release/build/*-amd64.snap
-            release/build/*-x86_64.AppImage
-            !release/build/*.blockmap
-            !release/build/builder-debug.yml
-            !release/build/latest.yml
+            release/build/LibreLinkUpDesktop-*-amd64.deb
+            release/build/LibreLinkUpDesktop-*-amd64.snap
+            release/build/LibreLinkUpDesktop-*-x86_64.AppImage
           tag_name: ${{ github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -150,20 +144,14 @@ jobs:
           name: macos-artifacts
           path: |
             release/build/*.dmg
-            !release/build/*.blockmap
-            !release/build/builder-debug.yml
-            !release/build/latest.yml
 
       - name: Upload to Release (macOS)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release/build/*-arm64.dmg
-            release/build/*-x64.dmg
-            !release/build/*.blockmap
-            !release/build/builder-debug.yml
-            !release/build/latest.yml
+            release/build/LibreLinkUpDesktop-*-arm64.dmg
+            release/build/LibreLinkUpDesktop-*-x64.dmg
           tag_name: ${{ github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
