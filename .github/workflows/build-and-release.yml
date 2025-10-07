@@ -41,16 +41,30 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-artifacts
-          path: release/build/
+          path: |
+            release/build/*-setup.exe
+            release/build/*-ia32-setup.exe
+            release/build/*-x64-setup.exe
+            release/build/*-ia32.msi
+            release/build/*-x64.msi
+            release/build/*-ia32.appx
+            release/build/*-x64.appx
 
       - name: Upload to Release (Windows)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: release/build/*
+          files: |
+            release/build/*-setup.exe
+            release/build/*-ia32-setup.exe
+            release/build/*-x64-setup.exe
+            release/build/*-ia32.msi
+            release/build/*-x64.msi
+            release/build/*-ia32.appx
+            release/build/*-x64.appx
           tag_name: ${{ github.ref_name }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build_on_ubuntu:
     runs-on: ubuntu-latest
@@ -85,16 +99,22 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ubuntu-artifacts
-          path: release/build/
+          path: |
+            release/build/*.deb
+            release/build/*.snap
+            release/build/*.AppImage
 
       - name: Upload to Release (Ubuntu)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: release/build/*
+          files: |
+            release/build/*-amd64.deb
+            release/build/*-amd64.snap
+            release/build/*-x86_64.AppImage
           tag_name: ${{ github.ref_name }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build_on_mac:
     runs-on: macOS-latest
@@ -129,13 +149,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macos-artifacts
-          path: release/build/
+          path: |
+            release/build/*.dmg
 
       - name: Upload to Release (macOS)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: release/build/*
+          files: |
+            release/build/*-arm64.dmg
+            release/build/*-x64.dmg
           tag_name: ${{ github.ref_name }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
