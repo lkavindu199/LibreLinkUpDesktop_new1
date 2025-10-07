@@ -1,183 +1,101 @@
-name: Build And Release
-on:
-  push:
-    tags:
-      - 'v*'
-  pull_request:
-    types: [review_requested]
+name: Generate and Update Flatpak Sources
+
+on: [push, workflow_dispatch]
+
 jobs:
-  build_on_windows:
-    runs-on: windows-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Cache Node.js dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: windows-node-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            windows-node-
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install Dependencies
-        run: npm install --prefer-offline --legacy-peer-deps
-
-      - name: Build
-        run: npm run package
-
-      - name: List release folder
-        run: dir release/build/
-
-      - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        id: create_release
-        with:
-          name: ${{ github.ref_name }}
-          tag_name: ${{ github.ref_name }}
-          draft: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-
-      - name: Upload Release Artifacts
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            release/build/*.exe
-            release/build/*.msi
-            release/build/*.appx
-            release/build/*-setup.exe
-            release/build/*-ia32-setup.exe
-            release/build/*-x64-setup.exe
-            release/build/*-ia32.msi
-            release/build/*-x64.msi
-            release/build/*-ia32.appx
-            release/build/*-x64.appx
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-
-      - name: Upload Windows Artifacts
-        if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-artifacts
-          path: |
-            release/build/*.exe
-            release/build/*.msi
-            release/build/*.appx
-            release/build/*-setup.exe
-            release/build/*-ia32-setup.exe
-            release/build/*-x64-setup.exe
-            release/build/*-ia32.msi
-            release/build/*-x64.msi
-            release/build/*-ia32.appx
-            release/build/*-x64.appx
-
-  build_on_ubuntu:
+  generate-sources:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Cache Node.js dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ubuntu-node-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ubuntu-node-
+    - name: Install system dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y flatpak flatpak-builder nodejs npm python3 python3-pip python3-venv
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+    - name: Setup Flatpak
+      run: |
+        sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+        sudo flatpak install -y flathub org.freedesktop.Platform//23.08
+        sudo flatpak install -y flathub org.freedesktop.Sdk//23.08
+        sudo flatpak install -y flathub org.flatpak.Builder
+        sudo flatpak install -y flathub org.electronjs.Electron2.BaseApp//23.08
+        sudo flatpak install -y flathub org.freedesktop.Sdk.Extension.node20//23.08
 
-      - name: Install Dependencies
-        run: npm install --prefer-offline --legacy-peer-deps
+    - name: Clone source repository
+      run: |
+        git clone -b feature/trayicon https://github.com/deviitorinc/LibreLinkUpDesktop.git source-repo
+        cd source-repo
 
-      - name: Build the Package
-        run: npm run package
+        # Install dependencies to generate package-lock.json if needed
+        npm install --legacy-peer-deps --no-audit --no-fund
 
-      - name: List release folder
-        run: ls -la release/build/
+        echo "=== Package-lock.json exists ==="
+        [ -f package-lock.json ] && echo "package-lock.json found" || echo "package-lock.json not found"
 
-      - name: Upload Ubuntu Release Artifacts
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            release/build/*.deb
-            release/build/*.snap
-            release/build/*.AppImage
-            release/build/*-amd64.deb
-            release/build/*-x86_64.AppImage
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+    - name: Install flatpak-node-generator
+      run: |
+        python3 -m pip install --user pipx
+        python3 -m pipx ensurepath
+        export PATH="$HOME/.local/bin:$PATH"
 
-      - name: Upload Ubuntu Artifacts
-        if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ubuntu-artifacts
-          path: |
-            release/build/*.deb
-            release/build/*.snap
-            release/build/*.AppImage
-            release/build/*-amd64.deb
-            release/build/*-x86_64.AppImage
+        # Clone and install flatpak-builder-tools
+        git clone https://github.com/flatpak/flatpak-builder-tools.git
+        cd flatpak-builder-tools/node
+        pipx install .
 
-  build_on_mac:
-    runs-on: macOS-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+        echo "=== flatpak-node-generator installed ==="
+        which flatpak-node-generator
 
-      - name: Cache Node.js dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: mac-node-${{ hashFiles('/package-lock.json') }}
-          restore-keys: |
-            mac-node-
+    - name: Generate sources.json
+      run: |
+        cd source-repo
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+        echo "=== Current directory contents ==="
+        ls -la
 
-      - name: Install Dependencies
-        run: npm install --prefer-offline --legacy-peer-deps
+        echo "=== Generating sources ==="
+        export PATH="$HOME/.local/bin:$PATH"
+        flatpak-node-generator npm package-lock.json
 
-      - name: Build the Package
-        run: npm run package
+        echo "=== Generated files ==="
+        ls -la generated-sources.json || echo "No generated-sources.json created"
 
-      - name: List release folder
-        run: ls -la release/build/
+        # Copy the generated file to the repository root
+        cp generated-sources.json ../generated-sources.json
 
-      - name: Upload macOS Release Artifacts
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            release/build/*.dmg
-            release/build/*-arm64.dmg
-            release/build/*-x64.dmg
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+    - name: Verify and commit generated-sources.json
+      run: |
+        echo "=== Verifying generated-sources.json ==="
+        [ -f generated-sources.json ] && echo "generated-sources.json exists" || exit 1
 
-      - name: Upload macOS Artifacts (Non-Tag Builds)
-        if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-artifacts
-          path: |
-            release/build/*.dmg
-            release/build/*-arm64.dmg
-            release/build/*-x64.dmg
+        echo "=== File size ==="
+        ls -la generated-sources.json
+
+        echo "=== First few lines ==="
+        head -20 generated-sources.json
+
+    - name: Commit generated-sources.json to current repository
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+
+        # Check if the file has changed
+        if git diff --quiet generated-sources.json 2>/dev/null; then
+          echo "No changes to generated-sources.json"
+        else
+          git add generated-sources.json
+          git commit -m "Update generated-sources.json for Flatpak build"
+          git push
+        fi
+
+    - name: Upload generated-sources.json as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: generated-sources-json
+        path: generated-sources.json
+        retention-days: 7
