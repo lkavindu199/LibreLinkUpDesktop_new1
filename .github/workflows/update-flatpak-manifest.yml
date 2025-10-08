@@ -40,19 +40,19 @@ jobs:
         with open('rocks.poopjournal.librelinkupdesktop.yml', 'r') as f:
             content = f.read()
 
-        # Count how many times the old URL appears
-        old_url_count = content.count('https://github.com/deviitorinc/LibreLinkUpDesktop.git')
-        print(f'Found {old_url_count} occurrences of deviitorinc URL')
+        # Find ALL git URLs in the file
+        git_urls = re.findall(r'url: (https://github\.com/[^\s]+\.git)', content)
+        print(f'Found {len(git_urls)} git URLs in total:')
+        for url in git_urls:
+            print(f'  - {url}')
 
-        # Replace ALL occurrences of the old URL
-        if old_url_count > 0:
-            content = content.replace(
-                'https://github.com/deviitorinc/LibreLinkUpDesktop.git',
-                'https://github.com/lkavindu199/LibreLinkUpDesktop_new1.git'
-            )
-            print(f'✅ Replaced {old_url_count} occurrences of repository URL')
-        else:
-            print('⚠️  No deviitorinc URLs found to replace')
+        # Replace ANY git URL with our new URL
+        content = re.sub(
+            r'url: https://github\.com/[^/\s]+/[^\s]+\.git',
+            'url: https://github.com/lkavindu199/LibreLinkUpDesktop_new1.git',
+            content
+        )
+        print('✅ Replaced ALL git URLs with our repository')
 
         # Replace branch (any branch name) after ANY git URL
         content = re.sub(
@@ -62,9 +62,9 @@ jobs:
         )
         print('✅ Updated branch to main for all occurrences')
 
-        # Replace commit (any commit hash) after branch: main
+        # Replace commit (any commit hash) after ANY branch line
         content = re.sub(
-            r'(branch: main\s+)commit: [a-f0-9]+',
+            r'(branch: [^\s]+\s+)commit: [a-f0-9]+',
             f'\\1commit: {latest_commit}',
             content
         )
@@ -80,11 +80,8 @@ jobs:
     - name: Verify all changes
       run: |
         cd target-repo
-        echo "=== All occurrences of repository URLs ==="
-        grep -n "github.com" rocks.poopjournal.librelinkupdesktop.yml
-        echo ""
-        echo "=== All branch and commit lines ==="
-        grep -n -E "(branch:|commit:)" rocks.poopjournal.librelinkupdesktop.yml
+        echo "=== All git sources after update ==="
+        grep -A 2 -B 1 "url:" rocks.poopjournal.librelinkupdesktop.yml
 
     - name: Commit and push
       run: |
