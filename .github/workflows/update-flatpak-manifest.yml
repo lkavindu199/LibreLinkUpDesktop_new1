@@ -30,41 +30,61 @@ jobs:
         LATEST_COMMIT="${{ steps.commit-info.outputs.latest_commit }}"
 
         python3 -c "
+        import re
+
+        latest_commit = '$LATEST_COMMIT'
+
+        print(f'Updating with commit: {latest_commit}')
+
         # Read file
         with open('rocks.poopjournal.librelinkupdesktop.yml', 'r') as f:
             content = f.read()
 
-        # Replace URL
-        if 'deviitorinc/LibreLinkUpDesktop.git' in content:
-            content = content.replace(
-                'url: https://github.com/deviitorinc/LibreLinkUpDesktop.git',
-                'url: https://github.com/lkavindu199/LibreLinkUpDesktop_new1.git'
-            )
-            print('✅ Updated URL')
-        else:
-            print('⚠️  deviitorinc URL not found')
+        # Count how many times the old URL appears
+        old_url_count = content.count('https://github.com/deviitorinc/LibreLinkUpDesktop.git')
+        print(f'Found {old_url_count} occurrences of deviitorinc URL')
 
-        # Replace branch (any branch name)
-        import re
+        # Replace ALL occurrences of the old URL
+        if old_url_count > 0:
+            content = content.replace(
+                'https://github.com/deviitorinc/LibreLinkUpDesktop.git',
+                'https://github.com/lkavindu199/LibreLinkUpDesktop_new1.git'
+            )
+            print(f'✅ Replaced {old_url_count} occurrences of repository URL')
+        else:
+            print('⚠️  No deviitorinc URLs found to replace')
+
+        # Replace branch (any branch name) after ANY git URL
         content = re.sub(
             r'(url: https://github\.com/lkavindu199/LibreLinkUpDesktop_new1\.git\s+)branch: \S+',
             r'\\1branch: main',
             content
         )
-        print('✅ Updated branch to main')
+        print('✅ Updated branch to main for all occurrences')
 
-        # Replace commit (any commit hash)
+        # Replace commit (any commit hash) after branch: main
         content = re.sub(
             r'(branch: main\s+)commit: [a-f0-9]+',
-            r'\\1commit: $LATEST_COMMIT',
+            f'\\1commit: {latest_commit}',
             content
         )
-        print('✅ Updated commit ID')
+        print('✅ Updated commit ID for all occurrences')
 
         # Write back
         with open('rocks.poopjournal.librelinkupdesktop.yml', 'w') as f:
             f.write(content)
+
+        print('✅ File updated successfully')
         "
+
+    - name: Verify all changes
+      run: |
+        cd target-repo
+        echo "=== All occurrences of repository URLs ==="
+        grep -n "github.com" rocks.poopjournal.librelinkupdesktop.yml
+        echo ""
+        echo "=== All branch and commit lines ==="
+        grep -n -E "(branch:|commit:)" rocks.poopjournal.librelinkupdesktop.yml
 
     - name: Commit and push
       run: |
@@ -77,7 +97,7 @@ jobs:
         if git diff --staged --quiet; then
           echo "No changes to commit"
         else
-          git commit -m "chore: Auto-update manifest with latest source"
+          git commit -m "chore: Update manifest "
           git push
           echo "✅ Manifest updated successfully"
         fi
