@@ -1,8 +1,8 @@
 name: Sync File to Target Repo
 
-on:
-  push:
-  workflow_dispatch:
+# on:
+#   push:
+#   workflow_dispatch:
 
 jobs:
   sync-file:
