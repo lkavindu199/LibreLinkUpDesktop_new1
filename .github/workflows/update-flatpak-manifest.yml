@@ -1,4 +1,4 @@
-name: Update Flatpak Manifest
+name: Update Flatpak Manifes
 
 on:
   push:
