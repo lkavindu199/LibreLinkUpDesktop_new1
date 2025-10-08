@@ -2,6 +2,7 @@ name: Update Flatpak Manifest
 
 on:
   push:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -22,38 +23,60 @@ jobs:
       id: commit-info
       run: |
         echo "latest_commit=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-        echo "Commit to use: ${{ steps.commit-info.outputs.latest_commit }}"
+        echo "Latest commit: ${{ steps.commit-info.outputs.latest_commit }}"
 
-    - name: Update manifest with exact replacements
+    - name: Update manifest - find and replace any commit
       run: |
         cd target-repo
 
-        # Use a simple Python script for exact replacements
         python3 << "EOF"
         # Read the entire file
         with open('rocks.poopjournal.librelinkupdesktop.yml', 'r') as f:
-            content = f.read()
+            lines = f.readlines()
 
-        # Make the exact replacements
-        content = content.replace(
-            'url: https://github.com/deviitorinc/LibreLinkUpDesktop.git',
-            'url: https://github.com/lkavindu199/LibreLinkUpDesktop_new1.git'
-        )
-        content = content.replace(
-            "branch: feature/trayicon",
-            "branch: main"
-        )
-        content = content.replace(
-            "commit: e7e51178e018d06932ac773d8b28d3ee44ab1ef4",
-            "commit: ${{ steps.commit-info.outputs.latest_commit }}"
-        )
+        # Find and update the specific git source section
+        in_git_section = False
+        updated = False
+
+        for i, line in enumerate(lines):
+            # Look for the git URL line to identify the right section
+            if 'url: https://github.com/deviitorinc/LibreLinkUpDesktop.git' in line:
+                in_git_section = True
+                # Update the URL
+                lines[i] = line.replace(
+                    'url: https://github.com/deviitorinc/LibreLinkUpDesktop.git',
+                    'url: https://github.com/lkavindu199/LibreLinkUpDesktop_new1.git'
+                )
+                print("✅ Updated URL")
+
+            # If we're in the git section, look for branch and commit lines
+            elif in_git_section:
+                if 'branch:' in line:
+                    lines[i] = '        branch: main\n'
+                    print("✅ Updated branch to main")
+
+                elif 'commit:' in line:
+                    # Replace ANY commit hash with the new one
+                    lines[i] = f'        commit: ${{{{ steps.commit-info.outputs.latest_commit }}}}\n'
+                    print("✅ Updated commit ID")
+                    updated = True
+                    in_git_section = False  # Reset after updating commit
+
+        if not updated:
+            print("⚠️ Could not find commit line to update")
 
         # Write back
         with open('rocks.poopjournal.librelinkupdesktop.yml', 'w') as f:
-            f.write(content)
+            f.writelines(lines)
 
-        print("✅ File updated successfully")
+        print("✅ File update completed")
         EOF
+
+    - name: Show what changed
+      run: |
+        cd target-repo
+        echo "=== Updated section ==="
+        grep -A 10 -B 5 "lkavindu199" rocks.poopjournal.librelinkupdesktop.yml
 
     - name: Commit and push changes
       run: |
@@ -66,7 +89,7 @@ jobs:
         if git diff --staged --quiet; then
           echo "No changes to commit"
         else
-          git commit -m "chore: Update manifest to point to main repo commit ${{ steps.commit-info.outputs.latest_commit }}"
+          git commit -m "chore: Update manifest with latest commit ${{ steps.commit-info.outputs.latest_commit }}"
           git push
-          echo "✅ Successfully updated manifest"
+          echo "✅ Successfully updated and pushed manifest"
         fi
