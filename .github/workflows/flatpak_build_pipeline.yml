@@ -1,4 +1,4 @@
-name: Combined Flatpak Build and Sync
+name: Combined Flatpak Build
 
 on:
   push:
