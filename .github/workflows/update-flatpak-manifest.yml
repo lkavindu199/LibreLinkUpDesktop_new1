@@ -2,6 +2,7 @@ name: Update Flatpak Manifest
 
 on:
   push:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -28,6 +29,24 @@ jobs:
         echo "Latest commit: $LATEST_COMMIT"
         echo "Commit date: $COMMIT_DATE"
 
+    - name: Debug - Check current manifest structure
+      run: |
+        cd target-repo
+        echo "=== Current manifest structure ==="
+        python3 -c "
+        import yaml
+        with open('rocks.poopjournal.librelinkupdesktop.yml', 'r') as f:
+            data = yaml.safe_load(f)
+            print('Modules type:', type(data.get('modules')))
+            if data.get('modules'):
+                for i, module in enumerate(data['modules']):
+                    print(f'Module {i}: {module.get(\\\"name\\\", \\\"no-name\\\")}')
+                    if module.get('name') == 'librelinkupdesktop':
+                        print('Sources found:', module.get('sources'))
+                        for j, source in enumerate(module.get('sources', [])):
+                            print(f'  Source {j}: {source}')
+        "
+
     - name: Update Flatpak manifest
       run: |
         cd target-repo
@@ -41,17 +60,55 @@ jobs:
         with open('rocks.poopjournal.librelinkupdesktop.yml', 'r') as file:
             manifest = yaml.safe_load(file)
 
+        print("Original manifest structure:")
+        print(f"Modules type: {type(manifest.get('modules'))}")
+
         # Find the librelinkupdesktop module and update it
-        for module in manifest['modules']:
-            if module['name'] == 'librelinkupdesktop':
-                # Update git source URL and commit
-                for source in module['sources']:
-                    if source.get('type') == 'git' and 'librelinkupdesktop' in source.get('url', ''):
-                        source['url'] = 'https://github.com/lkavindu199/LibreLinkUpDesktop_new1.git'
-                        source['branch'] = 'main'
-                        source['commit'] = '${{ steps.commit-info.outputs.latest_commit }}'
-                        break
-                break
+        updated = False
+        if 'modules' in manifest:
+            for module in manifest['modules']:
+                if isinstance(module, dict) and module.get('name') == 'librelinkupdesktop':
+                    print(f"Found librelinkupdesktop module")
+                    if 'sources' in module:
+                        for source in module['sources']:
+                            # Check if this is a git source
+                            if isinstance(source, dict) and source.get('type') == 'git':
+                                print(f"Found git source: {source.get('url')}")
+                                source['url'] = 'https://github.com/lkavindu199/LibreLinkUpDesktop_new1.git'
+                                source['branch'] = 'main'
+                                source['commit'] = '${{ steps.commit-info.outputs.latest_commit }}'
+                                updated = True
+                                print("✅ Updated git source")
+                                break
+                    break
+
+        if not updated:
+            print("⚠️  No git source found to update")
+            # Let's try to find any git source in the entire manifest
+            def find_and_update_git_sources(obj, path=""):
+                if isinstance(obj, dict):
+                    for key, value in obj.items():
+                        if (key == 'url' and 'github.com' in str(value) and
+                            'deviitorinc' in str(value)):
+                            print(f"Found deviitorinc URL at {path}: {value}")
+                            # Update the parent dict if it has type=git
+                            if isinstance(obj, dict) and obj.get('type') == 'git':
+                                obj['url'] = 'https://github.com/lkavindu199/LibreLinkUpDesktop_new1.git'
+                                obj['branch'] = 'main'
+                                obj['commit'] = '${{ steps.commit-info.outputs.latest_commit }}'
+                                return True
+                        elif isinstance(value, (dict, list)):
+                            if find_and_update_git_sources(value, f"{path}.{key}"):
+                                return True
+                elif isinstance(obj, list):
+                    for i, item in enumerate(obj):
+                        if find_and_update_git_sources(item, f"{path}[{i}]")):
+                            return True
+                return False
+
+            if find_and_update_git_sources(manifest, "root"):
+                updated = True
+                print("✅ Updated git source via recursive search")
 
         # Write the updated manifest back
         with open('rocks.poopjournal.librelinkupdesktop.yml', 'w') as file:
@@ -63,8 +120,21 @@ jobs:
     - name: Verify changes
       run: |
         cd target-repo
-        echo "Updated file content:"
-        cat rocks.poopjournal.librelinkupdesktop.yml | grep -A 5 -B 5 "librelinkupdesktop"
+        echo "=== Updated file content ==="
+        python3 -c "
+        import yaml
+        with open('rocks.poopjournal.librelinkupdesktop.yml', 'r') as f:
+            data = yaml.safe_load(f)
+            if data.get('modules'):
+                for module in data['modules']:
+                    if module.get('name') == 'librelinkupdesktop':
+                        print('Updated sources:')
+                        for source in module.get('sources', []):
+                            if isinstance(source, dict) and source.get('type') == 'git':
+                                print(f'  URL: {source.get(\\\"url\\\")}')
+                                print(f'  Branch: {source.get(\\\"branch\\\")}')
+                                print(f'  Commit: {source.get(\\\"commit\\\")}')
+        "
 
     - name: Commit and push changes
       run: |
