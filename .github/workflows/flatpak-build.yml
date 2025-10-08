@@ -94,7 +94,7 @@ jobs:
         # Check if there are changes to commit
         if ! git diff --staged --quiet; then
           git commit -m "Update generated-sources.json for Flatpak build [skip ci]"
-          git push
+          git push origin HEAD:${{ github.ref }}
           echo "Successfully pushed updated generated-sources.json to repository"
         else
           echo "No changes to generated-sources.json - skipping commit"
