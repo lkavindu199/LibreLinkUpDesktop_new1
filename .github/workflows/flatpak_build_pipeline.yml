@@ -99,8 +99,10 @@ jobs:
           git commit -m "Update generated-sources.json for Flatpak build [skip ci]"
           git push
           echo "Successfully pushed updated generated-sources.json to repository"
+          echo "has_changes=true" >> $GITHUB_OUTPUT
         else
           echo "No changes to generated-sources.json - skipping commit"
+          echo "has_changes=false" >> $GITHUB_OUTPUT
         fi
 
     - name: Upload generated-sources.json as artifact
