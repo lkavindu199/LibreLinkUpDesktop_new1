@@ -22,7 +22,7 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt update
-        sudo apt install -y flatpak flatpak-builder nodejs npm python3 python3-pip python3-venv
+        sudo apt install -y flatpak flatpak-builder nodejs npm python3 python3-pip python3-venv jq
 
     - name: Setup Flatpak
       run: |
@@ -84,22 +84,53 @@ jobs:
         # Verify the generated file exists
         [ -f generated-sources.json ] && echo "generated-sources.json successfully created" || exit 1
 
-    - name: Commit and push generated-sources.json
-      id: commit-check
+    - name: Verify generated-sources.json
       run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add generated-sources.json
+        echo "=== Verifying generated-sources.json ==="
+        [ -f generated-sources.json ] && echo "generated-sources.json exists" || exit 1
 
-        # Check if there are changes to commit
-        if ! git diff --staged --quiet; then
-          git commit -m "Update generated-sources.json for Flatpak build [skip ci]"
-          git push
-          echo "Successfully pushed updated generated-sources.json to repository"
-          echo "has_changes=true" >> $GITHUB_OUTPUT
+        echo "=== File size ==="
+        ls -la generated-sources.json
+
+        echo "=== First few lines ==="
+        head -20 generated-sources.json
+
+    - name: Debug file comparison
+      run: |
+        echo "=== Detailed file comparison ==="
+
+        # Check if file is tracked
+        if git ls-files --error-unmatch generated-sources.json >/dev/null 2>&1; then
+          echo "File is tracked in git"
+
+          # Create temporary files for comparison
+          git show HEAD:generated-sources.json > old.json 2>/dev/null || echo "No previous version in HEAD"
+
+          if [ -f old.json ]; then
+            cp generated-sources.json new.json
+
+            echo "=== File sizes ==="
+            echo "Old: $(wc -c < old.json) bytes"
+            echo "New: $(wc -c < new.json) bytes"
+
+            echo "=== SHA256 hashes ==="
+            echo "Old: $(sha256sum old.json)"
+            echo "New: $(sha256sum new.json)"
+
+            # Check if files are identical
+            if cmp -s old.json new.json; then
+              echo "✅ Files are IDENTICAL - no changes to commit"
+            else
+              echo "❌ Files are DIFFERENT - should commit changes"
+            fi
+
+            # Cleanup
+            rm -f old.json new.json
+          else
+            echo "No previous version found - this should be the first commit"
+          fi
         else
-          echo "No changes to generated-sources.json - skipping commit"
-          echo "has_changes=false" >> $GITHUB_OUTPUT
+          echo "File is NOT tracked in git - this should be the first commit"
         fi
 
     - name: Commit and push generated-sources.json
