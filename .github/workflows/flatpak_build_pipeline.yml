@@ -70,22 +70,37 @@ jobs:
         export PATH="$HOME/.local/bin:$PATH"
         flatpak-node-generator npm package-lock.json
 
+        # Ensure the file always has changes by adding a metadata entry
+        if [ -f generated-sources.json ]; then
+          # Use jq to add a workflow metadata entry
+          jq '. + [{ "type": "metadata", "generated_at": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'", "workflow_run": "'$GITHUB_RUN_ID'", "purpose": "flatpak_build" }]' generated-sources.json > generated-sources.json.tmp
+          mv generated-sources.json.tmp generated-sources.json
+          echo "✅ Added metadata to ensure unique content"
+        fi
+
         echo "=== Generated files ==="
         ls -la generated-sources.json || echo "No generated-sources.json created"
 
         # Verify the generated file exists
         [ -f generated-sources.json ] && echo "generated-sources.json successfully created" || exit 1
 
-    - name: Verify generated-sources.json
+    - name: Commit and push generated-sources.json
+      id: commit-check
       run: |
-        echo "=== Verifying generated-sources.json ==="
-        [ -f generated-sources.json ] && echo "generated-sources.json exists" || exit 1
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add generated-sources.json
 
-        echo "=== File size ==="
-        ls -la generated-sources.json
-
-        echo "=== First few lines ==="
-        head -20 generated-sources.json
+        # Check if there are changes to commit
+        if ! git diff --staged --quiet; then
+          git commit -m "Update generated-sources.json for Flatpak build [skip ci]"
+          git push
+          echo "Successfully pushed updated generated-sources.json to repository"
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+        else
+          echo "No changes to generated-sources.json - skipping commit"
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+        fi
 
     - name: Commit and push generated-sources.json
       id: commit-check
