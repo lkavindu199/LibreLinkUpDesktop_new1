@@ -2,43 +2,7 @@
     {
         ]
     },
-    {
-        "type": "file",
-        "url": "https://registry.npmjs.org/7zip-bin/-/7zip-bin-5.2.0.tgz",
-        "sha512": "ba44cf561a86e2337332ba36a80f4748249254937768deed95bfa17ea602b77111d325aba1e036551dfc30dace1cb43f7158fe0da20c69dd24142b565a8c21fc",
-        "dest-filename": "cf561a86e2337332ba36a80f4748249254937768deed95bfa17ea602b77111d325aba1e036551dfc30dace1cb43f7158fe0da20c69dd24142b565a8c21fc",
-        "dest": "flatpak-node/npm-cache/_cacache/content-v2/sha512/ba/44"
-    },
-    {
-        "type": "file",
-        "url": "https://registry.npmjs.org/@adobe/css-tools/-/css-tools-4.4.0.tgz",
-        "sha512": "15ff7e92c750401deb327720a832bbf2e2f39ecb63c9f21fd80ae7876da95bc901a4bb3aae9283c209d94f8ea18a7e479755b36b3ccaeb80ceae14b06294bb6d",
-        "dest-filename": "7e92c750401deb327720a832bbf2e2f39ecb63c9f21fd80ae7876da95bc901a4bb3aae9283c209d94f8ea18a7e479755b36b3ccaeb80ceae14b06294bb6d",
-        "dest": "flatpak-node/npm-cache/_cacache/content-v2/sha512/15/ff"
-    },
-    {
-        "type": "file",
-        "url": "https://registry.npmjs.org/@alloc/quick-lru/-/quick-lru-5.2.0.tgz",
-        "sha512": "52b700041fb86d4ac5001c1b96e4c8044ad7c2f6ec53f57b4d959f99b8097db930881bb3892f60c5d383532ba279c7dd190f398e094c5ba8ee4b7fb3e53b0a2f",
-        "dest-filename": "00041fb86d4ac5001c1b96e4c8044ad7c2f6ec53f57b4d959f99b8097db930881bb3892f60c5d383532ba279c7dd190f398e094c5ba8ee4b7fb3e53b0a2f",
-        "dest": "flatpak-node/npm-cache/_cacache/content-v2/sha512/52/b7"
-    },
-    {
-        "type": "file",
-        "url": "https://registry.npmjs.org/@ampproject/remapping/-/remapping-2.2.0.tgz",
-        "sha512": "a919a38fc9e3f6a98b4d05d799a47571c93751749130fadbb0b2406ac66917eb77ae223bd415de77979b20e630427b7291e66e863b1dc1e11cf41c47e49736eb",
-        "dest-filename": "a38fc9e3f6a98b4d05d799a47571c93751749130fadbb0b2406ac66917eb77ae223bd415de77979b20e630427b7291e66e863b1dc1e11cf41c47e49736eb",
-        "dest": "flatpak-node/npm-cache/_cacache/content-v2/sha512/a9/19"
-    },
-    {
-        "type": "file",
-        "url": "https://registry.npmjs.org/@babel/code-frame/-/code-frame-7.24.7.tgz",
-        "sha512": "05c607d4254904ef6dbf2219da355e5e048832f199d850d1bc374e215432ba494d292b31f9ea690c406afe0e3b032c3e46a34513e511bce4a199ff9ffeac0094",
-        "dest-filename": "07d4254904ef6dbf2219da355e5e048832f199d850d1bc374e215432ba494d292b31f9ea690c406afe0e3b032c3e46a34513e511bce4a199ff9ffeac0094",
-        "dest": "flatpak-node/npm-cache/_cacache/content-v2/sha512/05/c6"
-    },
-    {
-        "type": "file",
+   
         "url": "https://registry.npmjs.org/@babel/compat-data/-/compat-data-7.25.2.tgz",
         "sha512": "6d8729a5ca4a06f5f8ce761a3c47856aed376e9f3d4a1a8d30bb3eae6769b4cc3e85e49987dfb3f38776606f8aedc60b6d6c33763b43a16feea9998f8ee94295",
         "dest-filename": "29a5ca4a06f5f8ce761a3c47856aed376e9f3d4a1a8d30bb3eae6769b4cc3e85e49987dfb3f38776606f8aedc60b6d6c33763b43a16feea9998f8ee94295",
